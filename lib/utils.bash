@@ -2,7 +2,6 @@
 
 set -euo pipefail
 
-# TODO: Ensure this is the correct GitHub homepage where releases can be downloaded for plumber.
 GH_REPO="https://github.com/getplumber/plumber"
 TOOL_NAME="plumber"
 TOOL_TEST="plumber --version"
@@ -41,11 +40,29 @@ download_release() {
 	version="$1"
 	filename="$2"
 
-	# TODO: Adapt the release URL convention for plumber
-	url="$GH_REPO/archive/v${version}.tar.gz"
+	local platform arch
+	platform=$(get_platform)
+	arch=$(get_arch)
+
+	url="$GH_REPO/releases/download/v${version}/${TOOL_NAME}-${platform}-${arch}"
 
 	echo "* Downloading $TOOL_NAME release $version..."
 	curl "${curl_opts[@]}" -o "$filename" -C - "$url" || fail "Could not download $url"
+}
+
+get_platform() {
+	uname -s | tr '[:upper:]' '[:lower:]'
+}
+
+get_arch() {
+	local arch
+	arch=$(uname -m)
+	case "$arch" in
+		x86_64) echo "amd64" ;;
+		aarch64) echo "arm64" ;;
+		arm64) echo "arm64" ;;
+		*) echo "$arch" ;;
+	esac
 }
 
 install_version() {
@@ -59,9 +76,12 @@ install_version() {
 
 	(
 		mkdir -p "$install_path"
-		cp -r "$ASDF_DOWNLOAD_PATH"/* "$install_path"
 
-		# TODO: Assert plumber executable exists.
+		# Copy binary and make executable
+		cp "$ASDF_DOWNLOAD_PATH/$TOOL_NAME" "$install_path/$TOOL_NAME"
+		chmod +x "$install_path/$TOOL_NAME"
+
+		# Verify the binary is executable
 		local tool_cmd
 		tool_cmd="$(echo "$TOOL_TEST" | cut -d' ' -f1)"
 		test -x "$install_path/$tool_cmd" || fail "Expected $install_path/$tool_cmd to be executable."
